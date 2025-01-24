@@ -8,7 +8,7 @@ GROQ_API_KEY = "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"
 
 # GitHub Configuration
 GITHUB_REPO = "DegenerateDecals/FortuneResponses"  # Replace with your GitHub username/repo
-GITHUB_TOKEN = "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"  # Replace with your personal access token
+GITHUB_TOKEN = "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"  # Replace with your personal access token
 RAW_FILE_PATH = "responses.json"  # File to update in GitHub
 
 
