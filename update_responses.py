@@ -37,28 +37,38 @@ def push_to_github(content):
     """Update the responses.json file in the GitHub repository."""
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{RAW_FILE_PATH}"
     headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
-    
+
     # Fetch the existing file's SHA (needed for updates)
     response = requests.get(url, headers=headers)
-    sha = response.json().get("sha", "")
-    
+    if response.status_code == 200:
+        sha = response.json().get("sha", "")
+    else:
+        print(f"Error fetching SHA: {response.status_code} - {response.text}")
+        return
+
     # Prepare the payload
     payload = {
         "message": "Update fortune response",
         "content": base64.b64encode(content.encode()).decode(),
         "sha": sha,
     }
-    requests.put(url, headers=headers, json=payload)
+
+    # Push the update
+    update_response = requests.put(url, headers=headers, json=payload)
+    if update_response.status_code == 200 or update_response.status_code == 201:
+        print("File successfully updated on GitHub!")
+    else:
+        print(f"Error updating file: {update_response.status_code} - {update_response.text}")
 
 
 if __name__ == "__main__":
     # Example usage
     name = "Player123"
     keywords = ["success", "happiness", "adventure"]
-    
+
     fortune = query_groq(name, keywords)
     print(f"Generated fortune: {fortune}")
-    
+
     # Update responses.json on GitHub
     response_data = {"fortune": fortune}
     push_to_github(json.dumps(response_data))
