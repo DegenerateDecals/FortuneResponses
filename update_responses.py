@@ -7,8 +7,8 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_API_KEY = "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"
 
 # GitHub Configuration
-GITHUB_REPO = "your_username/FortuneResponses"  # Replace "your_username" with your GitHub username
-GITHUB_TOKEN = "your_github_personal_access_token"  # Replace with your GitHub personal access token
+GITHUB_REPO = "DegenerateDecals/FortuneResponses"  # Replace "your_username" with your GitHub username
+GITHUB_TOKEN = "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"  # Replace with your GitHub personal access token
 RAW_FILE_PATH = "responses.json"  # File to update in GitHub
 
 def query_groq(user_message):
