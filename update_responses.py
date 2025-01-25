@@ -1,19 +1,30 @@
 import requests
 import json
 import base64
+import os
 
-# Groq API Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+#  Groq API CONFIG
+# ─────────────────────────────────────────────────────────────────────────────
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_API_KEY = "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"
+GROQ_API_KEY = "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"  # Replace with your valid Groq key
 
-# GitHub Configuration
-GITHUB_REPO = "DegenerateDecals/FortuneResponses"  # Replace with your GitHub username/repo
-GITHUB_TOKEN = "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"  # Replace with your personal access token
-RAW_FILE_PATH = "responses.json"  # File to update in GitHub
+# ─────────────────────────────────────────────────────────────────────────────
+#  GITHUB CONFIG
+# ─────────────────────────────────────────────────────────────────────────────
+GITHUB_USERNAME = "DegenerateDecals"  # Replace if needed
+GITHUB_TOKEN = "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"  # Replace with your valid GitHub PAT
+GITHUB_REPO = "FortuneResponses"
+FILE_PATH = "responses.json"
 
-
+# ─────────────────────────────────────────────────────────────────────────────
+#  1) Query Groq for a New Fortune
+# ─────────────────────────────────────────────────────────────────────────────
 def query_groq(name, keywords):
-    """Send a request to the Groq API."""
+    """
+    Generate a fortune from the Groq API using the provided 'name' and 'keywords'.
+    Returns the fortune text directly or an error string if something fails.
+    """
     prompt = f"Generate a fortune for {name} based on these keywords: {', '.join(keywords)}."
     payload = {
         "model": "llama-3.2-1b-preview",
@@ -22,53 +33,95 @@ def query_groq(name, keywords):
             {"role": "user", "content": prompt}
         ]
     }
+
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
-    response = requests.post(GROQ_API_URL, json=payload, headers=headers)
+
+    try:
+        response = requests.post(GROQ_API_URL, json=payload, headers=headers, timeout=15)
+    except requests.exceptions.RequestException as e:
+        return f"Error connecting to Groq: {e}"
+
     if response.status_code == 200:
-        return response.json()['choices'][0]['message']['content']
+        # Expecting an OpenAI-style response with choices/message/content
+        data = response.json()
+        if "choices" in data and len(data["choices"]) > 0:
+            return data["choices"][0]["message"]["content"]
+        else:
+            return "Error: Groq API returned an unexpected format."
     else:
-        return f"Error: {response.status_code} - {response.text}"
+        return f"Error from Groq API: {response.status_code} - {response.text}"
 
-
-def push_to_github(content):
-    """Update the responses.json file in the GitHub repository."""
-    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{RAW_FILE_PATH}"
-    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
-
-    # Fetch the existing file's SHA (needed for updates)
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        sha = response.json().get("sha", "")
-    else:
-        print(f"Error fetching SHA: {response.status_code} - {response.text}")
-        return
-
-    # Prepare the payload
-    payload = {
-        "message": "Update fortune response",
-        "content": base64.b64encode(content.encode()).decode(),
-        "sha": sha,
+# ─────────────────────────────────────────────────────────────────────────────
+#  2) Update or Create responses.json on GitHub via REST API
+# ─────────────────────────────────────────────────────────────────────────────
+def update_github_file(new_content):
+    """
+    Create or update responses.json in your GitHub repo with 'new_content' (string).
+    Uses the token-based Auth with your GitHub username + personal token.
+    """
+    # Prepare the authorization header
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
     }
 
-    # Push the update
-    update_response = requests.put(url, headers=headers, json=payload)
-    if update_response.status_code == 200 or update_response.status_code == 201:
-        print("File successfully updated on GitHub!")
+    # The endpoint for the specific file in your repo
+    url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{FILE_PATH}"
+
+    # 1) Attempt to get the current file's SHA
+    get_resp = requests.get(url, headers=headers)
+    
+    if get_resp.status_code == 200:
+        # File exists, extract the current SHA
+        current_sha = get_resp.json()["sha"]
+
+        # Prepare payload to update existing file
+        payload = {
+            "message": "Update fortune response",
+            "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8"),
+            "sha": current_sha
+        }
+    elif get_resp.status_code == 404:
+        # File does not exist -> create it
+        payload = {
+            "message": "Create fortune response",
+            "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8")
+        }
     else:
-        print(f"Error updating file: {update_response.status_code} - {update_response.text}")
+        # Some other error
+        print(f"Error fetching file info: {get_resp.status_code} - {get_resp.text}")
+        return
 
+    # 2) PUT request to update or create the file
+    put_resp = requests.put(url, headers=headers, json=payload)
+    if put_resp.status_code in (200, 201):
+        print("File successfully created/updated on GitHub!")
+    else:
+        print(f"Error updating/creating file: {put_resp.status_code} - {put_resp.text}")
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  3) Main Execution Flow
+# ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     # Example usage
     name = "Player123"
     keywords = ["success", "happiness", "adventure"]
 
-    fortune = query_groq(name, keywords)
-    print(f"Generated fortune: {fortune}")
+    # A) Generate a fortune
+    fortune_text = query_groq(name, keywords)
+    print(f"Generated fortune: {fortune_text}")
 
-    # Update responses.json on GitHub
-    response_data = {"fortune": fortune}
-    push_to_github(json.dumps(response_data))
+    # B) Prepare JSON for responses.json
+    #    (Extend this structure as needed.)
+    new_json_data = {
+        "fortune": fortune_text
+    }
+
+    # C) Update or create the file on GitHub
+    update_github_file(json.dumps(new_json_data, indent=2))
+
+    # D) Done
+    print("Fortune process complete!")
