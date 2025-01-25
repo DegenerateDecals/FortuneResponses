@@ -15,7 +15,7 @@ GROQ_API_KEY = "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"
 #  GITHUB CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 GITHUB_USERNAME = "DegenerateDecals"
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = "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"
 GITHUB_REPO = "FortuneResponses"
 FILE_PATH = "responses.json"
 
