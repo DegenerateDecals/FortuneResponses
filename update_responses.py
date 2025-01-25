@@ -82,14 +82,10 @@ def update_github_file(new_content: str) -> None:
     try:
         print("[DEBUG] Checking if file exists on GitHub...")
         get_resp = requests.get(url, headers=headers)
-        
+
         if get_resp.status_code == 401:
             print("[ERROR] Unauthorized: Invalid GitHub token or insufficient permissions.")
             print("[DEBUG] Response:", get_resp.json())
-            print(
-                "[SOLUTION] Verify that the GitHub token is correct and has the required 'repo' scope.\n"
-                "Ensure the token owner has write access to the repository."
-            )
             return
 
         get_resp.raise_for_status()
@@ -97,31 +93,30 @@ def update_github_file(new_content: str) -> None:
         if get_resp.status_code == 200:
             # File exists, extract SHA
             current_sha = get_resp.json().get("sha")
-            print(f"[DEBUG] File exists. Updating with SHA: {current_sha}")
+            print(f"[DEBUG] File exists. Updating content with SHA: {current_sha}")
             payload = {
                 "message": "Update fortune response",
                 "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8"),
                 "sha": current_sha
             }
         elif get_resp.status_code == 404:
-            # File does not exist, create it
+            # File does not exist -> create it
             print("[DEBUG] File does not exist. Creating new file...")
             payload = {
                 "message": "Create fortune response",
                 "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8")
             }
+        else:
+            print(f"[ERROR] Unexpected response while checking file existence: {get_resp.status_code}")
+            return
 
-        # PUT request to create/update file
-        print("[DEBUG] Sending update request to GitHub...")
+        # PUT request to create or update the file
+        print("[DEBUG] Sending request to update/create file on GitHub...")
         put_resp = requests.put(url, headers=headers, json=payload)
-        
+
         if put_resp.status_code == 401:
             print("[ERROR] Unauthorized: Invalid GitHub token or insufficient permissions.")
             print("[DEBUG] Response:", put_resp.json())
-            print(
-                "[SOLUTION] Verify that the GitHub token is correct and has the required 'repo' scope.\n"
-                "Ensure the token owner has write access to the repository."
-            )
             return
 
         put_resp.raise_for_status()
@@ -135,4 +130,45 @@ def update_github_file(new_content: str) -> None:
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Flask Route to Handle Fortune Requests
-# ──
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route('/generate_fortune', methods=['GET'])
+def generate_fortune():
+    """
+    Flask route to handle fortune generation. Accepts 'name' and 'keywords' as query params.
+    """
+    name = request.args.get('name')
+    keywords = request.args.getlist('keywords')
+
+    if not name or not keywords:
+        print("[ERROR] Missing 'name' or 'keywords' parameters.")
+        return jsonify({"error": "Missing required parameters 'name' or 'keywords'."}), 400
+
+    print(f"[DEBUG] Received request: name={name}, keywords={keywords}")
+
+    # Generate the fortune
+    fortune_text = query_groq(name, keywords)
+    print(f"[DEBUG] Generated fortune: {fortune_text}")
+
+    # Prepare JSON content for GitHub
+    new_json_data = {
+        "fortune": fortune_text,
+        "name": name,
+        "keywords": keywords
+    }
+
+    # Update GitHub with the new fortune
+    try:
+        print("[DEBUG] Updating GitHub with new content...")
+        update_github_file(json.dumps(new_json_data, indent=2))
+    except Exception as e:
+        print(f"[ERROR] Failed to update GitHub: {e}")
+        return jsonify({"error": "Failed to update GitHub."}), 500
+
+    return jsonify({"status": "success", "fortune": fortune_text}), 200
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Run Flask Application
+# ─────────────────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    print("[INFO] Starting Flask server...")
+    app.run(debug=True, host="0.0.0.0", port=5000)
