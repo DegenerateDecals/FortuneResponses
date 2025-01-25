@@ -1,8 +1,7 @@
 import requests
 import json
 import base64
-from flask import Flask, request, jsonify
-from typing import List
+from typing import Optional, List
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Groq API CONFIG
@@ -19,9 +18,31 @@ GITHUB_REPO = "FortuneResponses"
 FILE_PATH = "responses.json"
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Flask Application Setup
+#  Preflight Check for GitHub Token
 # ─────────────────────────────────────────────────────────────────────────────
-app = Flask(__name__)
+def verify_github_token() -> bool:
+    """
+    Test the GitHub token against the GitHub API to ensure it is valid.
+    """
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    try:
+        response = requests.get("https://api.github.com/user", headers=headers)
+        if response.status_code == 200:
+            print("GitHub token is valid.")
+            return True
+        elif response.status_code == 401:
+            print("Error: Unauthorized. Check your GitHub token.")
+            return False
+        else:
+            print(f"Unexpected error: {response.status_code} - {response.text}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Error verifying GitHub token: {e}")
+        return False
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Query Groq for a New Fortune
@@ -46,21 +67,17 @@ def query_groq(name: str, keywords: List[str]) -> str:
     }
 
     try:
-        print("Sending request to Groq API...")
         response = requests.post(GROQ_API_URL, json=payload, headers=headers, timeout=15)
         response.raise_for_status()  # Raise an HTTPError for bad responses
         data = response.json()
-        print("Received response from Groq API:", data)
 
         if "choices" in data and len(data["choices"]) > 0:
             return data["choices"][0]["message"]["content"]
         else:
             return "Error: Groq API returned an unexpected format."
     except requests.exceptions.RequestException as e:
-        print(f"Error connecting to Groq API: {e}")
         return f"Error connecting to Groq: {e}"
     except ValueError as e:
-        print(f"Error parsing response from Groq API: {e}")
         return f"Error parsing response from Groq: {e}"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +97,6 @@ def update_github_file(new_content: str) -> None:
 
     try:
         # Check if the file exists to obtain the current SHA
-        print("Checking if the file exists on GitHub...")
         get_resp = requests.get(url, headers=headers)
         if get_resp.status_code == 401:
             print("Error: Unauthorized. Check your GitHub token or permissions.")
@@ -90,7 +106,9 @@ def update_github_file(new_content: str) -> None:
         if get_resp.status_code == 200:
             # File exists, extract the current SHA
             current_sha = get_resp.json().get("sha")
-            print("File exists. Updating content...")
+            if not current_sha:
+                print("Error: Unable to retrieve file SHA from GitHub response.")
+                return
             payload = {
                 "message": "Update fortune response",
                 "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8"),
@@ -98,7 +116,6 @@ def update_github_file(new_content: str) -> None:
             }
         elif get_resp.status_code == 404:
             # File does not exist -> create it
-            print("File does not exist. Creating new file...")
             payload = {
                 "message": "Create fortune response",
                 "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8")
@@ -108,8 +125,10 @@ def update_github_file(new_content: str) -> None:
             return
 
         # PUT request to create or update the file
-        print("Sending request to update/create file on GitHub...")
         put_resp = requests.put(url, headers=headers, json=payload)
+        if put_resp.status_code == 401:
+            print("Error: Unauthorized. Check your GitHub token or permissions.")
+            return
         put_resp.raise_for_status()
 
         if put_resp.status_code in (200, 201):
@@ -120,39 +139,29 @@ def update_github_file(new_content: str) -> None:
         print(f"Error communicating with GitHub: {e}")
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Flask Route to Handle Fortune Requests
-# ─────────────────────────────────────────────────────────────────────────────
-@app.route('/generate_fortune', methods=['GET'])
-def generate_fortune():
-    """
-    Flask route to handle fortune generation. Accepts 'name' and 'keywords' as query params.
-    """
-    name = request.args.get('name')
-    keywords = request.args.getlist('keywords')
-
-    if not name or not keywords:
-        return jsonify({"error": "Missing required parameters 'name' or 'keywords'."}), 400
-
-    # Generate the fortune
-    print(f"Generating fortune for name: {name}, keywords: {keywords}")
-    fortune_text = query_groq(name, keywords)
-
-    # Prepare JSON content for GitHub
-    new_json_data = {
-        "fortune": fortune_text,
-        "name": name,
-        "keywords": keywords
-    }
-
-    # Update GitHub with the new fortune
-    print("Updating GitHub with the generated fortune...")
-    update_github_file(json.dumps(new_json_data, indent=2))
-
-    return jsonify({"status": "success", "fortune": fortune_text}), 200
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Run Flask Application
+#  Main Execution Flow
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print("Starting Flask server...")
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # Verify GitHub token before proceeding
+    if not verify_github_token():
+        print("Aborting script due to invalid GitHub token.")
+        exit(1)
+
+    # Example usage
+    name = "Player123"
+    keywords = ["success", "happiness", "adventure"]
+
+    # A) Generate a fortune
+    fortune_text = query_groq(name, keywords)
+    print(f"Generated fortune: {fortune_text}")
+
+    # B) Prepare JSON for responses.json
+    new_json_data = {
+        "fortune": fortune_text
+    }
+
+    # C) Update or create the file on GitHub
+    update_github_file(json.dumps(new_json_data, indent=2))
+
+    # D) Done
+    print("Fortune process complete!")
