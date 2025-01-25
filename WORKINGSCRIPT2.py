@@ -1,9 +1,8 @@
 import requests
 import json
 import base64
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify
 from typing import List
-from datetime import datetime
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Groq API CONFIG
@@ -32,8 +31,7 @@ def query_groq(name: str, keywords: List[str]) -> str:
     Generate a fortune from the Groq API using the provided 'name' and 'keywords'.
     Returns the fortune text directly or an error string if something fails.
     """
-    timestamp = datetime.utcnow().isoformat()  # Add timestamp to make prompt unique
-    prompt = f"Generate a fortune for {name} based on these keywords: {', '.join(keywords)}. Request time: {timestamp}."
+    prompt = f"Generate a fortune for {name} based on these keywords: {', '.join(keywords)}."
     payload = {
         "model": "llama-3.2-1b-preview",
         "messages": [
@@ -48,11 +46,11 @@ def query_groq(name: str, keywords: List[str]) -> str:
     }
 
     try:
-        print(f"[DEBUG] Sending request to Groq API with unique timestamp: {timestamp}")
+        print("[DEBUG] Sending request to Groq API...")
         response = requests.post(GROQ_API_URL, json=payload, headers=headers, timeout=15)
-        response.raise_for_status()
+        response.raise_for_status()  # Raise an HTTPError for bad responses
         data = response.json()
-        print(f"[DEBUG] Received response from Groq API: {data}")
+        print("[DEBUG] Received response from Groq API:", data)
 
         if "choices" in data and len(data["choices"]) > 0:
             return data["choices"][0]["message"]["content"]
@@ -156,9 +154,7 @@ def generate_fortune():
         print(f"[ERROR] Failed to update GitHub: {e}")
         return jsonify({"error": "Failed to update GitHub."}), 500
 
-    response = jsonify({"status": "success", "fortune": fortune_text})
-    response.headers['Cache-Control'] = 'no-store'  # Prevent caching
-    return response, 200
+    return jsonify({"status": "success", "fortune": fortune_text}), 200
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Run Flask Application
