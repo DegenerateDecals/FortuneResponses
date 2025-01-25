@@ -25,7 +25,7 @@ def query_groq(name, keywords):
     Generate a fortune from the Groq API using the provided 'name' and 'keywords'.
     Returns the fortune text directly or an error string if something fails.
     """
-    prompt = f"Generate a fortune for {name} based on these keywords: {', '.join(keywords)}."
+    prompt = f"Generate a short fortune cookie style phrase for {name} based on these keywords: {', '.join(keywords)}."
     payload = {
         "model": "llama-3.2-1b-preview",
         "messages": [
