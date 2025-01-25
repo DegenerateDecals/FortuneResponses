@@ -64,9 +64,6 @@ def query_groq(name: str, keywords: List[str]) -> str:
     except requests.exceptions.RequestException as e:
         print(f"[ERROR] Error connecting to Groq API: {e}")
         return f"Error connecting to Groq API: {e}"
-    except ValueError as e:
-        print(f"[ERROR] Error parsing response from Groq API: {e}")
-        return f"Error parsing response from Groq API: {e}"
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Update or Create responses.json on GitHub via REST API
@@ -76,12 +73,11 @@ def update_github_file(new_content: str) -> None:
     Create or update responses.json in your GitHub repo with 'new_content' (string).
     Uses token-based Auth with your GitHub username + personal token.
     """
+    url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{FILE_PATH}"
     headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Authorization": f"token {GITHUB_TOKEN}",  # Use `token` for GitHub authentication
         "Accept": "application/vnd.github.v3+json"
     }
-
-    url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{FILE_PATH}"
 
     try:
         print("[DEBUG] Checking if file exists on GitHub...")
