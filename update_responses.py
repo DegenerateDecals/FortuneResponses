@@ -30,7 +30,6 @@ app = Flask(__name__)
 def query_groq(name: str, keywords: List[str]) -> str:
     """
     Generate a fortune from the Groq API using the provided 'name' and 'keywords'.
-    Returns the fortune text directly or an error string if something fails.
     """
     unique_timestamp = datetime.now(timezone.utc).isoformat()
     prompt = (
@@ -71,27 +70,24 @@ def query_groq(name: str, keywords: List[str]) -> str:
 def update_github_file(new_content: str) -> None:
     """
     Create or update responses.json in your GitHub repo with 'new_content' (string).
-    Uses token-based Auth with your GitHub username + personal token.
     """
     url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{FILE_PATH}"
     headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Authorization": f"Bearer {GITHUB_TOKEN.strip()}",
         "Accept": "application/vnd.github.v3+json"
     }
 
     try:
         print("[DEBUG] Checking if file exists on GitHub...")
         get_resp = requests.get(url, headers=headers)
-
         if get_resp.status_code == 401:
-            print("[ERROR] Unauthorized: Invalid GitHub token or insufficient permissions.")
-            print("[DEBUG] Response:", get_resp.json())
+            print("[ERROR] Unauthorized: Check the GitHub token permissions or scope.")
+            print(f"[DEBUG] Response: {get_resp.json()}")
             return
 
         get_resp.raise_for_status()
 
         if get_resp.status_code == 200:
-            # File exists, extract SHA
             current_sha = get_resp.json().get("sha")
             print(f"[DEBUG] File exists. Updating content with SHA: {current_sha}")
             payload = {
@@ -100,7 +96,6 @@ def update_github_file(new_content: str) -> None:
                 "sha": current_sha
             }
         elif get_resp.status_code == 404:
-            # File does not exist -> create it
             print("[DEBUG] File does not exist. Creating new file...")
             payload = {
                 "message": "Create fortune response",
@@ -110,13 +105,11 @@ def update_github_file(new_content: str) -> None:
             print(f"[ERROR] Unexpected response while checking file existence: {get_resp.status_code}")
             return
 
-        # PUT request to create or update the file
         print("[DEBUG] Sending request to update/create file on GitHub...")
         put_resp = requests.put(url, headers=headers, json=payload)
-
         if put_resp.status_code == 401:
             print("[ERROR] Unauthorized: Invalid GitHub token or insufficient permissions.")
-            print("[DEBUG] Response:", put_resp.json())
+            print(f"[DEBUG] Response: {put_resp.json()}")
             return
 
         put_resp.raise_for_status()
@@ -145,18 +138,15 @@ def generate_fortune():
 
     print(f"[DEBUG] Received request: name={name}, keywords={keywords}")
 
-    # Generate the fortune
     fortune_text = query_groq(name, keywords)
     print(f"[DEBUG] Generated fortune: {fortune_text}")
 
-    # Prepare JSON content for GitHub
     new_json_data = {
         "fortune": fortune_text,
         "name": name,
         "keywords": keywords
     }
 
-    # Update GitHub with the new fortune
     try:
         print("[DEBUG] Updating GitHub with new content...")
         update_github_file(json.dumps(new_json_data, indent=2))
