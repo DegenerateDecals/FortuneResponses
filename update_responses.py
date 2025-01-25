@@ -1,7 +1,6 @@
 import requests
 import json
 import base64
-import os
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Groq API CONFIG
@@ -60,25 +59,24 @@ def query_groq(name, keywords):
 def update_github_file(new_content):
     """
     Create or update responses.json in your GitHub repo with 'new_content' (string).
-    Uses the token-based Auth with your GitHub username + personal token.
+    Uses token-based Auth with your GitHub username + personal token.
     """
-    # Prepare the authorization header
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json"
     }
 
-    # The endpoint for the specific file in your repo
     url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{FILE_PATH}"
 
-    # 1) Attempt to get the current file's SHA
+    # 1) Check if the file exists to obtain the current SHA
     get_resp = requests.get(url, headers=headers)
     
     if get_resp.status_code == 200:
         # File exists, extract the current SHA
-        current_sha = get_resp.json()["sha"]
-
-        # Prepare payload to update existing file
+        current_sha = get_resp.json().get("sha")
+        if not current_sha:
+            print("Error: Unable to retrieve file SHA from GitHub response.")
+            return
         payload = {
             "message": "Update fortune response",
             "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8"),
@@ -95,7 +93,7 @@ def update_github_file(new_content):
         print(f"Error fetching file info: {get_resp.status_code} - {get_resp.text}")
         return
 
-    # 2) PUT request to update or create the file
+    # 2) PUT request to create or update the file
     put_resp = requests.put(url, headers=headers, json=payload)
     if put_resp.status_code in (200, 201):
         print("File successfully created/updated on GitHub!")
@@ -115,7 +113,6 @@ if __name__ == "__main__":
     print(f"Generated fortune: {fortune_text}")
 
     # B) Prepare JSON for responses.json
-    #    (Extend this structure as needed.)
     new_json_data = {
         "fortune": fortune_text
     }
