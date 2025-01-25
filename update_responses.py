@@ -15,7 +15,7 @@ GROQ_API_KEY = "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"
 #  GITHUB CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 GITHUB_USERNAME = "DegenerateDecals"
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = "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"
 GITHUB_REPO = "FortuneResponses"
 FILE_PATH = "responses.json"
 
@@ -75,7 +75,7 @@ def update_github_file(new_content: str) -> None:
     """
     url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{FILE_PATH}"
     headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",  # Use `token` for GitHub authentication
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json"
     }
 
@@ -135,44 +135,4 @@ def update_github_file(new_content: str) -> None:
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Flask Route to Handle Fortune Requests
-# ─────────────────────────────────────────────────────────────────────────────
-@app.route('/generate_fortune', methods=['GET'])
-def generate_fortune():
-    """
-    Flask route to handle fortune generation. Accepts 'name' and 'keywords' as query params.
-    """
-    name = request.args.get('name')
-    keywords = request.args.getlist('keywords')
-
-    if not name or not keywords:
-        return jsonify({"error": "Missing required parameters 'name' or 'keywords'."}), 400
-
-    print(f"[DEBUG] Received request: name={name}, keywords={keywords}")
-
-    # Generate the fortune
-    fortune_text = query_groq(name, keywords)
-    print(f"[DEBUG] Generated fortune: {fortune_text}")
-
-    # Prepare JSON content for GitHub
-    new_json_data = {
-        "fortune": fortune_text,
-        "name": name,
-        "keywords": keywords
-    }
-
-    # Update GitHub with the new fortune
-    try:
-        print("[DEBUG] Updating GitHub with new content...")
-        update_github_file(json.dumps(new_json_data, indent=2))
-    except Exception as e:
-        print(f"[ERROR] Failed to update GitHub: {e}")
-        return jsonify({"error": "Failed to update GitHub."}), 500
-
-    return jsonify({"status": "success", "fortune": fortune_text}), 200
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Run Flask Application
-# ─────────────────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    print("[INFO] Starting Flask server...")
-    app.run(debug=True, host="0.0.0.0", port=5000)
+# ──
