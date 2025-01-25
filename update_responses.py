@@ -46,21 +46,21 @@ def query_groq(name: str, keywords: List[str]) -> str:
     }
 
     try:
-        print("Sending request to Groq API...")
+        print("[DEBUG] Sending request to Groq API...")
         response = requests.post(GROQ_API_URL, json=payload, headers=headers, timeout=15)
         response.raise_for_status()  # Raise an HTTPError for bad responses
         data = response.json()
-        print("Received response from Groq API:", data)
+        print("[DEBUG] Received response from Groq API:", data)
 
         if "choices" in data and len(data["choices"]) > 0:
             return data["choices"][0]["message"]["content"]
         else:
             return "Error: Groq API returned an unexpected format."
     except requests.exceptions.RequestException as e:
-        print(f"Error connecting to Groq API: {e}")
+        print(f"[ERROR] Error connecting to Groq API: {e}")
         return f"Error connecting to Groq: {e}"
     except ValueError as e:
-        print(f"Error parsing response from Groq API: {e}")
+        print(f"[ERROR] Error parsing response from Groq API: {e}")
         return f"Error parsing response from Groq: {e}"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -79,18 +79,17 @@ def update_github_file(new_content: str) -> None:
     url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{FILE_PATH}"
 
     try:
-        # Check if the file exists to obtain the current SHA
-        print("Checking if the file exists on GitHub...")
+        print("[DEBUG] Checking if file exists on GitHub...")
         get_resp = requests.get(url, headers=headers)
         if get_resp.status_code == 401:
-            print("Error: Unauthorized. Check your GitHub token or permissions.")
+            print("[ERROR] Unauthorized. Check your GitHub token or permissions.")
             return
         get_resp.raise_for_status()
 
         if get_resp.status_code == 200:
             # File exists, extract the current SHA
             current_sha = get_resp.json().get("sha")
-            print("File exists. Updating content...")
+            print(f"[DEBUG] File exists. Updating content with SHA: {current_sha}")
             payload = {
                 "message": "Update fortune response",
                 "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8"),
@@ -98,26 +97,26 @@ def update_github_file(new_content: str) -> None:
             }
         elif get_resp.status_code == 404:
             # File does not exist -> create it
-            print("File does not exist. Creating new file...")
+            print("[DEBUG] File does not exist. Creating new file...")
             payload = {
                 "message": "Create fortune response",
                 "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8")
             }
         else:
-            print(f"Error fetching file info: {get_resp.status_code} - {get_resp.text}")
+            print(f"[ERROR] Unexpected response while checking file existence: {get_resp.status_code}")
             return
 
         # PUT request to create or update the file
-        print("Sending request to update/create file on GitHub...")
+        print("[DEBUG] Sending request to update/create file on GitHub...")
         put_resp = requests.put(url, headers=headers, json=payload)
         put_resp.raise_for_status()
 
         if put_resp.status_code in (200, 201):
-            print("File successfully created/updated on GitHub!")
+            print("[DEBUG] File successfully created/updated on GitHub!")
         else:
-            print(f"Unexpected status code from GitHub: {put_resp.status_code} - {put_resp.text}")
+            print(f"[ERROR] Unexpected response from GitHub: {put_resp.status_code} - {put_resp.text}")
     except requests.exceptions.RequestException as e:
-        print(f"Error communicating with GitHub: {e}")
+        print(f"[ERROR] Error communicating with GitHub: {e}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Flask Route to Handle Fortune Requests
@@ -131,11 +130,14 @@ def generate_fortune():
     keywords = request.args.getlist('keywords')
 
     if not name or not keywords:
+        print("[ERROR] Missing 'name' or 'keywords' parameters.")
         return jsonify({"error": "Missing required parameters 'name' or 'keywords'."}), 400
 
+    print(f"[DEBUG] Received request: name={name}, keywords={keywords}")
+
     # Generate the fortune
-    print(f"Generating fortune for name: {name}, keywords: {keywords}")
     fortune_text = query_groq(name, keywords)
+    print(f"[DEBUG] Generated fortune: {fortune_text}")
 
     # Prepare JSON content for GitHub
     new_json_data = {
@@ -145,8 +147,12 @@ def generate_fortune():
     }
 
     # Update GitHub with the new fortune
-    print("Updating GitHub with the generated fortune...")
-    update_github_file(json.dumps(new_json_data, indent=2))
+    try:
+        print("[DEBUG] Updating GitHub with new content...")
+        update_github_file(json.dumps(new_json_data, indent=2))
+    except Exception as e:
+        print(f"[ERROR] Failed to update GitHub: {e}")
+        return jsonify({"error": "Failed to update GitHub."}), 500
 
     return jsonify({"status": "success", "fortune": fortune_text}), 200
 
@@ -154,5 +160,5 @@ def generate_fortune():
 #  Run Flask Application
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print("Starting Flask server...")
+    print("[INFO] Starting Flask server...")
     app.run(debug=True, host="0.0.0.0", port=5000)
