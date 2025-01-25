@@ -3,7 +3,7 @@ import json
 import base64
 from flask import Flask, request, jsonify
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Groq API CONFIG
@@ -32,7 +32,8 @@ def query_groq(name: str, keywords: List[str]) -> str:
     Generate a fortune from the Groq API using the provided 'name' and 'keywords'.
     Returns the fortune text directly or an error string if something fails.
     """
-    unique_timestamp = datetime.utcnow().isoformat()
+    # Use timezone-aware UTC datetime to avoid deprecation warning
+    unique_timestamp = datetime.now(timezone.utc).isoformat()
     prompt = (
         f"Generate a fortune for {name} based on these keywords: {', '.join(keywords)}.\n"
         f"Add a unique timestamp: {unique_timestamp}."
