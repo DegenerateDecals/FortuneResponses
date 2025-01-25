@@ -45,7 +45,7 @@ def query_groq(name: str, keywords: List[str]) -> str:
     }
 
     headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Authorization": f"Bearer {GROQ_API_KEY.strip()}",
         "Content-Type": "application/json",
     }
 
@@ -81,7 +81,7 @@ def update_github_file(new_content: str) -> None:
         print("[DEBUG] Checking if file exists on GitHub...")
         get_resp = requests.get(url, headers=headers)
         if get_resp.status_code == 401:
-            print("[ERROR] Unauthorized: Check the GitHub token permissions or scope.")
+            print("[ERROR] Unauthorized: Invalid GitHub token or insufficient permissions.")
             print(f"[DEBUG] Response: {get_resp.json()}")
             return
 
