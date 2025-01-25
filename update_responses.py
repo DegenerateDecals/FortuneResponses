@@ -15,7 +15,7 @@ GROQ_API_KEY = "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"
 #  GITHUB CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 GITHUB_USERNAME = "DegenerateDecals"
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = "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"
 GITHUB_REPO = "FortuneResponses"
 FILE_PATH = "responses.json"
 
@@ -32,7 +32,6 @@ def query_groq(name: str, keywords: List[str]) -> str:
     Generate a fortune from the Groq API using the provided 'name' and 'keywords'.
     Returns the fortune text directly or an error string if something fails.
     """
-    # Use timezone-aware UTC datetime to avoid deprecation warning
     unique_timestamp = datetime.now(timezone.utc).isoformat()
     prompt = (
         f"Generate a fortune for {name} based on these keywords: {', '.join(keywords)}.\n"
@@ -91,6 +90,10 @@ def update_github_file(new_content: str) -> None:
         if get_resp.status_code == 401:
             print("[ERROR] Unauthorized: Invalid GitHub token or insufficient permissions.")
             print("[DEBUG] Response:", get_resp.json())
+            print(
+                "[SOLUTION] Verify that the GitHub token is correct and has the required 'repo' scope.\n"
+                "Ensure the token owner has write access to the repository."
+            )
             return
 
         get_resp.raise_for_status()
@@ -119,6 +122,10 @@ def update_github_file(new_content: str) -> None:
         if put_resp.status_code == 401:
             print("[ERROR] Unauthorized: Invalid GitHub token or insufficient permissions.")
             print("[DEBUG] Response:", put_resp.json())
+            print(
+                "[SOLUTION] Verify that the GitHub token is correct and has the required 'repo' scope.\n"
+                "Ensure the token owner has write access to the repository."
+            )
             return
 
         put_resp.raise_for_status()
