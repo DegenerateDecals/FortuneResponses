@@ -9,13 +9,13 @@ from datetime import datetime, timezone
 #  Groq API CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_API_KEY = "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"
+GROQ_API_KEY = "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"  # Replace with a new secure key
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  GITHUB CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 GITHUB_USERNAME = "DegenerateDecals"
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = "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"  # Replace with a new secure token
 GITHUB_REPO = "FortuneResponses"
 FILE_PATH = "responses.json"
 
@@ -73,16 +73,17 @@ def update_github_file(new_content: str) -> None:
     """
     url = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{FILE_PATH}"
     headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN.strip()}",
+        "Authorization": f"token {GITHUB_TOKEN.strip()}",
         "Accept": "application/vnd.github.v3+json"
     }
 
     try:
         print("[DEBUG] Checking if file exists on GitHub...")
         get_resp = requests.get(url, headers=headers)
+        print(f"[DEBUG] GET Response: {get_resp.status_code} - {get_resp.text}")
+
         if get_resp.status_code == 401:
             print("[ERROR] Unauthorized: Invalid GitHub token or insufficient permissions.")
-            print(f"[DEBUG] Response: {get_resp.json()}")
             return
 
         get_resp.raise_for_status()
@@ -107,9 +108,10 @@ def update_github_file(new_content: str) -> None:
 
         print("[DEBUG] Sending request to update/create file on GitHub...")
         put_resp = requests.put(url, headers=headers, json=payload)
+        print(f"[DEBUG] PUT Response: {put_resp.status_code} - {put_resp.text}")
+
         if put_resp.status_code == 401:
             print("[ERROR] Unauthorized: Invalid GitHub token or insufficient permissions.")
-            print(f"[DEBUG] Response: {put_resp.json()}")
             return
 
         put_resp.raise_for_status()
